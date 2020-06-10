@@ -1,4 +1,5 @@
 from copy import deepcopy
+import pytest
 
 
 class TM4JReporter:
@@ -28,7 +29,25 @@ class TM4JReporter:
             results[tm4j_num] = {
                 'name': test_name,
                 'outcome': self._resolve_outcome(test_dict['outcome'])}
-        # {"T406": {"name": "hello", "outcome": "Pass"}}
+            results[tm4j_num].update(test_dict['metadata'])
+            # {
+            #   "tests": {
+            #     "T303": {
+            #       "name": "one",
+            #       "outcome": "Pass",
+            #       "step_1": "test one step A",
+            #       "step_2": "test one step B",
+            #       "summary": "test one summary"
+            #     },
+            #     "T304": {
+            #       "name": "two",
+            #       "outcome": "Pass",
+            #       "step_1": "test two step A",
+            #       "step_2": "test two step B",
+            #       "summary": "test two summary"
+            #     }
+            #   }
+            # }
         return results
 
 
@@ -38,3 +57,32 @@ def pytest_json_modifyreport(json_report):
         del json_report[key]
     t = TM4JReporter()
     json_report['tests'] = t.prepare_tm4j_report_json(json_report_orig)
+    assert True
+
+
+def pytest_json_runtest_metadata(item, call):
+    if call.when == 'teardown':
+        result = {}
+        for step in range(len(item.meta_steps)):
+            result[f'step_{step+1}'] = item.meta_steps[step]
+        result['summary'] = item.meta_summary
+        return result
+
+
+@pytest.fixture
+def tm4j_r(request):
+
+    class MetaHolder:
+        def __init__(self):
+            self.steps = []
+            self.summary = None
+
+        def step(self, text):
+            self.steps.append(text)
+
+    m = MetaHolder()
+
+    yield m
+    request.node.meta_steps = m.steps
+    request.node.meta_summary = m.summary
+    return m
