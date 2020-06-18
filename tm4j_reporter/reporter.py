@@ -1,10 +1,11 @@
+import re
 from copy import deepcopy
 import pytest
 
 
 class TM4JReporter:
     def __init__(self):
-        self.test_prefix = 'test_'
+        pass
 
     def _resolve_outcome(self, outcome):
         """
@@ -18,36 +19,26 @@ class TM4JReporter:
     def prepare_tm4j_report_json(self, pytest_json: dict) -> dict:
         report = pytest_json
         results = {}
+
         for test_dict in report['tests']:
             test_name_full = test_dict['nodeid']
-            test_name_wo_module = test_dict['nodeid'].split('::')[-1]
-            # play.py::test_T406_hello
-            assert test_name_wo_module.startswith(self.test_prefix)
-            test_name_w_tm4j_num = '_'.join(test_name_full.split('_')[1:])
-            tm4j_num = test_name_w_tm4j_num.split('_')[0]
-            test_name = '_'.join(test_name_w_tm4j_num.split('_')[1:])
+            # test_common.py::test_T303_one
+            test_name_wo_module = test_name_full.split('::')[-1]
+            # test_T303_one
+
+            tm4j_num_ptrn = 'T\d+'
+            t_name_ptrn = '.*'
+            is_test_valid_tm4j = re.match(
+                f'^.*_({tm4j_num_ptrn})_({t_name_ptrn})', test_name_wo_module)
+            if not is_test_valid_tm4j:
+                continue
+            tm4j_num = is_test_valid_tm4j.group(1)
+            test_name = is_test_valid_tm4j.group(2)
+
             results[tm4j_num] = {
                 'name': test_name,
                 'outcome': self._resolve_outcome(test_dict['outcome'])}
             results[tm4j_num].update(test_dict['metadata'])
-            # {
-            #   "tests": {
-            #     "T303": {
-            #       "name": "one",
-            #       "outcome": "Pass",
-            #       "step_1": "test one step A",
-            #       "step_2": "test one step B",
-            #       "summary": "test one summary"
-            #     },
-            #     "T304": {
-            #       "name": "two",
-            #       "outcome": "Pass",
-            #       "step_1": "test two step A",
-            #       "step_2": "test two step B",
-            #       "summary": "test two summary"
-            #     }
-            #   }
-            # }
         return results
 
 
@@ -57,7 +48,6 @@ def pytest_json_modifyreport(json_report):
         del json_report[key]
     t = TM4JReporter()
     json_report['tests'] = t.prepare_tm4j_report_json(json_report_orig)
-    assert True
 
 
 def pytest_json_runtest_metadata(item, call):
