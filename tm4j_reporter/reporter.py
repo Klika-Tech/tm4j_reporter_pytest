@@ -4,6 +4,10 @@ import pytest
 
 
 class TM4JReporter:
+    def __init__(self):
+        # should be read from pytest.ini and use <prj_key>-T instead of T
+        self.prefix = 'T'
+
     @staticmethod
     def _resolve_outcome(outcome: str) -> str:
         """
@@ -39,7 +43,7 @@ class TM4JReporter:
             test_name_wo_module = test_name_full.split('::')[-1]
             # test_T303_one
 
-            tm4j_num_ptrn = 'T\d+'
+            tm4j_num_ptrn = f'{self.prefix}\d+'
             t_name_ptrn = '.*'
             is_test_valid_tm4j = re.match(
                 f'^.*_({tm4j_num_ptrn})_({t_name_ptrn})', test_name_wo_module)
@@ -54,16 +58,17 @@ class TM4JReporter:
                 'outcome': self._resolve_outcome(test_dict['outcome'])}
             results[tm4j_num].update(test_dict['metadata'])
 
-        print(f"\n\nWARNING: some test results cannot be exported to TM4J "
-              f"because they don't have a TM4J test ID "
-              f"in their name."
-              f"\nexample: test_T123_testname"
-              f"\ntests affected: {' '.join(tests_wo_tm4j_id)}")
+        if tests_wo_tm4j_id:
+            print(f"\n\nWARNING: some test results cannot be exported to TM4J "
+                  f"because they don't have a TM4J test ID in their name."
+                  f"\nexample: \"test_{self.prefix}123_testname\" "
+                  f"where {self.prefix}123 is a TM4J test ID"
+                  f"\ntests affected: {' '.join(tests_wo_tm4j_id)}")
 
         return results
 
 
-def pytest_json_modifyreport(json_report):
+def pytest_json_modifyreport(json_report: dict):
     """
     The hook belongs to json-report plugin
     Rewrites an original report
@@ -75,7 +80,7 @@ def pytest_json_modifyreport(json_report):
     json_report['tests'] = t.prepare_tm4j_report_json(json_report_orig)
 
 
-def pytest_json_runtest_metadata(item, call):
+def pytest_json_runtest_metadata(item, call) -> dict:
     """
     The hook belongs to json-report plugin
     Reads the metadata from the test body and writes it to the report
