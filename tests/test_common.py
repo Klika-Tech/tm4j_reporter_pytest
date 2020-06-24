@@ -16,7 +16,7 @@ def test_common():
     cmd = 'pytest common/report_tests.py'.split()
     run(cmd).check_returncode()
 
-    with open(f'test_data/{report_fname}') as orig_obj:
+    with open(f'test_data/report.json') as orig_obj:
         orig = load(orig_obj)
     with open(report_fname) as rcvd_obj:
         rcvd = load(rcvd_obj)
