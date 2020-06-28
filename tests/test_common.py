@@ -22,7 +22,7 @@ def test_common():
     assert cmd_run.returncode == 1
 
     print('check: tests without a TM4J ID are listed as warning in stdout')
-    assert 'tests affected: report_tests.py::test_withoutTm4jId_two' in output
+    assert 'tests affected: tests/common/report_tests.py::test_withoutTm4jId_two' in output
 
     with open(f'test_data/report.json') as orig_obj:
         orig = load(orig_obj)
