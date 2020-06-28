@@ -1,12 +1,72 @@
 import re
 from copy import deepcopy
 import pytest
+from pytest_jsonreport.plugin import JSONReport
 
 
 class TM4JReporter:
-    def __init__(self):
+    def __init__(self, config=None):
+        self._config = config
         # should be read from pytest.ini and use <prj_key>-T instead of T
         self.prefix = 'T'
+
+    def pytest_configure(self, config):
+        if not hasattr(config, '_tm4j_report'):
+            self._config._tm4j_report = self
+
+        # Activate json-report plugin for report generation
+        Plugin = JSONReport
+        plugin = Plugin(config)
+        config._json_report = plugin
+        config.pluginmanager.register(plugin)
+
+    @staticmethod
+    def pytest_json_modifyreport(json_report: dict):
+        """
+        The hook belongs to json-report plugin
+        Rewrites an original report
+        """
+        json_report_orig = deepcopy(json_report)
+        for key in json_report_orig.keys():
+            del json_report[key]
+        t = TM4JReporter()
+        json_report['tests'] = t.prepare_tm4j_report_json(json_report_orig)
+
+    @staticmethod
+    def pytest_json_runtest_metadata(item, call) -> dict:
+        """
+        The hook belongs to json-report plugin
+        Reads the metadata from the test body and writes it to the report
+        """
+        if call.when == 'teardown':
+            result = {'steps': item.meta_steps, 'summary': item.meta_summary}
+            return result
+
+    @staticmethod
+    @pytest.fixture
+    def tm4j_r(request):
+        """
+        TM4J-related metadata can be added to test using MetaHolder class
+
+        def test_T303_one(tm4j_r):
+            tm4j_r.summary = 'test one summary'
+            tm4j_r.step('test one step A')
+            tm4j_r.step('test one step B')
+        """
+
+        class MetaHolder:
+            def __init__(self):
+                self.steps = []
+                self.summary = None
+
+            def step(self, text: str):
+                self.steps.append(text)
+
+        m = MetaHolder()
+        yield m
+        request.node.meta_steps = m.steps
+        request.node.meta_summary = m.summary
+        return m
 
     @staticmethod
     def _resolve_outcome(outcome: str) -> str:
@@ -68,48 +128,18 @@ class TM4JReporter:
         return results
 
 
-def pytest_json_modifyreport(json_report: dict):
-    """
-    The hook belongs to json-report plugin
-    Rewrites an original report
-    """
-    json_report_orig = deepcopy(json_report)
-    for key in json_report_orig.keys():
-        del json_report[key]
-    t = TM4JReporter()
-    json_report['tests'] = t.prepare_tm4j_report_json(json_report_orig)
+def pytest_addoption(parser):
+    group = parser.getgroup('tm4j', 'reporting test results to TM4J')
+    group.addoption(
+        '--tm4j', default=False, action='store_true',
+        help='report test results to TM4J')
 
 
-def pytest_json_runtest_metadata(item, call) -> dict:
-    """
-    The hook belongs to json-report plugin
-    Reads the metadata from the test body and writes it to the report
-    """
-    if call.when == 'teardown':
-        result = {'steps': item.meta_steps, 'summary': item.meta_summary}
-        return result
-
-
-@pytest.fixture
-def tm4j_r(request):
-    """
-    TM4J-related metadata can be added to test using MetaHolder class
-
-    def test_T303_one(tm4j_r):
-        tm4j_r.summary = 'test one summary'
-        tm4j_r.step('test one step A')
-        tm4j_r.step('test one step B')
-    """
-    class MetaHolder:
-        def __init__(self):
-            self.steps = []
-            self.summary = None
-
-        def step(self, text: str):
-            self.steps.append(text)
-
-    m = MetaHolder()
-    yield m
-    request.node.meta_steps = m.steps
-    request.node.meta_summary = m.summary
-    return m
+def pytest_configure(config):
+    # Activates the plugin if a --tm4j flag passed to pytest cmdline
+    if not config.option.tm4j:
+        return
+    Plugin = TM4JReporter
+    plugin = Plugin(config)
+    config._tm4j_report = plugin
+    config.pluginmanager.register(plugin)

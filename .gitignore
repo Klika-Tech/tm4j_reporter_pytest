@@ -1,3 +1,4 @@
+!.gitignore
 dist
 pytest_tm4j_reporter.egg-info
 venv

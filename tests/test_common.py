@@ -14,7 +14,7 @@ def test_common():
     if path.isfile(report_fname):
         remove(report_fname)
 
-    cmd = 'pytest common/report_tests.py'.split()
+    cmd = 'pytest --tm4j common/report_tests.py'.split()
     cmd_run = run(cmd, capture_output=True)
     output = cmd_run.stdout.decode()
 
