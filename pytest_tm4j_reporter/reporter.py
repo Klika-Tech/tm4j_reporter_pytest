@@ -1,5 +1,6 @@
 import re
 from copy import deepcopy
+
 import pytest
 from pytest_jsonreport.plugin import JSONReport
 
@@ -8,7 +9,10 @@ class TM4JReporter:
     def __init__(self, config=None):
         self._config = config
         # should be read from pytest.ini and use <prj_key>-T instead of T
-        self.prefix = 'T'
+        self.prefix_test = 'T'
+        self.prefix_prj = None
+        self.api_key = None
+        self.testplan_id = None
 
     def pytest_configure(self, config):
         if not hasattr(config, '_tm4j_report'):
@@ -20,8 +24,11 @@ class TM4JReporter:
         config._json_report = plugin
         config.pluginmanager.register(plugin)
 
-    @staticmethod
-    def pytest_json_modifyreport(json_report: dict):
+        self.prefix_prj = config.getini('tm4j_project_prefix')
+        self.api_key = config.getini('tm4j_api_key')
+        self.testplan_id = config.getini('tm4j_testplan_id')
+
+    def pytest_json_modifyreport(self, json_report: dict):
         """
         The hook belongs to json-report plugin
         Rewrites an original report
@@ -29,8 +36,7 @@ class TM4JReporter:
         json_report_orig = deepcopy(json_report)
         for key in json_report_orig.keys():
             del json_report[key]
-        t = TM4JReporter()
-        json_report['tests'] = t.prepare_tm4j_report_json(json_report_orig)
+        json_report['tests'] = self.prepare_tm4j_report_json(json_report_orig)
 
     @staticmethod
     def pytest_json_runtest_metadata(item, call) -> dict:
@@ -103,7 +109,7 @@ class TM4JReporter:
             test_name_wo_module = test_name_full.split('::')[-1]
             # test_T303_one
 
-            tm4j_num_ptrn = f'{self.prefix}\d+'
+            tm4j_num_ptrn = f'{self.prefix_test}\d+'
             t_name_ptrn = '.*'
             is_test_valid_tm4j = re.match(
                 f'^.*_({tm4j_num_ptrn})_({t_name_ptrn})', test_name_wo_module)
@@ -121,8 +127,8 @@ class TM4JReporter:
         if tests_wo_tm4j_id:
             print(f"\n\nWARNING: some test results cannot be exported to TM4J "
                   f"because they don't have a TM4J test ID in their name."
-                  f"\nexample: \"test_{self.prefix}123_testname\" "
-                  f"where {self.prefix}123 is a TM4J test ID"
+                  f"\nexample: \"test_{self.prefix_test}123_testname\" "
+                  f"where {self.prefix_test}123 is a TM4J test ID"
                   f"\ntests affected: {' '.join(tests_wo_tm4j_id)}")
 
         return results
@@ -133,6 +139,10 @@ def pytest_addoption(parser):
     group.addoption(
         '--tm4j', default=False, action='store_true',
         help='report test results to TM4J')
+
+    parser.addini('tm4j_project_prefix', 'TM4J project prefix')
+    parser.addini('tm4j_api_key', 'TM4J API key')
+    parser.addini('tm4j_testplan_id', 'TM4J test plan ID')
 
 
 def pytest_configure(config):

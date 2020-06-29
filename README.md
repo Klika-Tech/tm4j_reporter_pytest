@@ -12,4 +12,5 @@ HOW TO RUN:
 run pytest with '--tm4j' argument: this will generate a report AND upload it to TM4J
 
 RESULT:
-.report.json file created in CWD
+* .report.json file created in CWD
+* the file is overwritten each time
