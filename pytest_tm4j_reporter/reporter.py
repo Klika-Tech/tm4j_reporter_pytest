@@ -1,32 +1,61 @@
-import re
 from copy import deepcopy
+from json import load
+from os import environ
+from re import match
+from time import time
+from typing import Union
 
 import pytest
+from _pytest.config import Config
 from pytest_jsonreport.plugin import JSONReport
+
+from tm4j_reporter_api.tm4j_api.tm4j_api import (
+    create_test_execution_result, create_test_cycle, configure_tm4j_api)
 
 
 class TM4JReporter:
-    def __init__(self, config=None):
+    def __init__(self, config: Union[Config, None] = None):
         self._config = config
-        # should be read from pytest.ini and use <prj_key>-T instead of T
         self.prefix_test = 'T'
-        self.prefix_prj = None
+        self.project_prefix = None
         self.api_key = None
-        self.testplan_id = None
+        self.testcycle_key = None
+        self.report = None
+        self.testcycle_prefix = None
+        self.project_webui_host = None
 
-    def pytest_configure(self, config):
+    def _load_config_params(self, config: Config):
+        """
+        Load config params from pytest.ini or sys env variables to TM4JReporter obj attributes
+        The sys env variables with the same name override the ones from pytest.ini
+        :param config: config pytest object
+        """
+        param_list = [
+            'tm4j_project_prefix',
+            'tm4j_api_key',
+            'tm4j_testcycle_key',
+            'tm4j_project_webui_host',
+            'tm4j_testcycle_prefix']
+
+        for param in param_list:
+            assert param.startswith('tm4j_')
+            attr = param.split('tm4j_')[-1]  # strip tm4j_ prefix
+            if param in environ.keys():
+                value = environ[param]
+            else:
+                value = config.getini(param)
+            setattr(self, attr, value)
+
+    def pytest_configure(self, config: Config):
         if not hasattr(config, '_tm4j_report'):
             self._config._tm4j_report = self
 
+        self._load_config_params(config)
+
         # Activate json-report plugin for report generation
-        Plugin = JSONReport
-        plugin = Plugin(config)
+        plugin = JSONReport(config)
         config._json_report = plugin
         config.pluginmanager.register(plugin)
-
-        self.prefix_prj = config.getini('tm4j_project_prefix')
-        self.api_key = config.getini('tm4j_api_key')
-        self.testplan_id = config.getini('tm4j_testplan_id')
 
     def pytest_json_modifyreport(self, json_report: dict):
         """
@@ -37,6 +66,7 @@ class TM4JReporter:
         for key in json_report_orig.keys():
             del json_report[key]
         json_report['tests'] = self.prepare_tm4j_report_json(json_report_orig)
+        self.report = {'tests': json_report['tests']}
 
     @staticmethod
     def pytest_json_runtest_metadata(item, call) -> dict:
@@ -111,7 +141,7 @@ class TM4JReporter:
 
             tm4j_num_ptrn = f'{self.prefix_test}\d+'
             t_name_ptrn = '.*'
-            is_test_valid_tm4j = re.match(
+            is_test_valid_tm4j = match(
                 f'^.*_({tm4j_num_ptrn})_({t_name_ptrn})', test_name_wo_module)
             if not is_test_valid_tm4j:
                 tests_wo_tm4j_id.append(test_name_full)
@@ -125,7 +155,7 @@ class TM4JReporter:
             results[tm4j_num].update(test_dict['metadata'])
 
         if tests_wo_tm4j_id:
-            print(f"\n\nWARNING: some test results cannot be exported to TM4J "
+            print(f"\n\n[TM4J] WARNING: some test results cannot be exported to TM4J "
                   f"because they don't have a TM4J test ID in their name."
                   f"\nexample: \"test_{self.prefix_test}123_testname\" "
                   f"where {self.prefix_test}123 is a TM4J test ID"
@@ -133,23 +163,78 @@ class TM4JReporter:
 
         return results
 
+    @staticmethod
+    def _report_load_from_file(path: str = './.report.json') -> dict:
+        """
+        :param path: full path to json-file
+        :return: dictionary
+        """
+        with open(path) as report_obj:
+            return load(report_obj)
+
+    def report_publish(self, external_source: Union[None, str] = None):
+        """
+        Publish a report to TM4J. creates a new test cycle if not found in pytest.ini
+        :param external_source: load from json-file if path specified
+        """
+        if external_source is None:
+            report = self._report_load_from_file()
+        else:
+            report = self.report
+
+        configure_tm4j_api(self.api_key, self.project_prefix)
+
+        if self.testcycle_key == '':
+            print('[TM4J] Creating a new test cycle...')
+            tcycle_name = f'{self.testcycle_prefix}-{int(time())}'
+            tcycle_key_full = create_test_cycle(tcycle_name)
+            # e.g. tcycle_key_full: QT-R64
+            self.testcycle_key = tcycle_key_full.split('-')[-1]
+            # e.g. self.testcycle_key: R64
+            print(f'[TM4j] Created a new test cycle: key={tcycle_key_full}, name={tcycle_name}')
+        else:
+            tcycle_key_full = f'{self.project_prefix}-{self.testcycle_key}'
+            print(f'[TM4J] Using existing test cycle: key={tcycle_key_full}')
+
+        for tkey, item in report['tests'].items():
+            execution_status = item['outcome']
+            tcase_key_full = f"{self.project_prefix}-{tkey}"
+            create_test_execution_result(
+                test_cycle_key=tcycle_key_full,
+                test_case_key=tcase_key_full,
+                execution_status=execution_status)
+            # todo: make create_test_execution_result() return result - need to change API client for this
+        print(f'[TM4J] Report published. Project: {self.project_prefix}. Test cycle key: {self.testcycle_key}')
+
+        jira_plugin_url = 'com.atlassian.plugins.atlassian-connect-plugin:com.kanoah.test-manager__main-project-page'
+        if self.project_webui_host != '':
+            print(f'[TM4J] Test cycle URL: https://{self.project_webui_host}/projects/{self.project_prefix}?'
+                  f'selectedItem={jira_plugin_url}#!/testCycle/{tcycle_key_full}')
+
+    def pytest_unconfigure(self, config: Config):
+        assert isinstance(config, Config)  # "config" object is not used, but required for the pytest hook
+        self.report_publish()
+
 
 def pytest_addoption(parser):
-    group = parser.getgroup('tm4j', 'reporting test results to TM4J')
-    group.addoption(
-        '--tm4j', default=False, action='store_true',
-        help='report test results to TM4J')
+    group = parser.getgroup('tm4j', 'Reporting test results to TM4J')
+    group.addoption('--tm4j', default=False, action='store_true', help='Report test results to TM4J')
 
-    parser.addini('tm4j_project_prefix', 'TM4J project prefix')
+    parser.addini('tm4j_project_prefix', 'TM4J project prefix without trailing dash (e.g. SWDEV)')
     parser.addini('tm4j_api_key', 'TM4J API key')
-    parser.addini('tm4j_testplan_id', 'TM4J test plan ID')
+    parser.addini('tm4j_testcycle_key', 'TM4J existing test cycle key (e.g. R43)')
+
+    tcycle_default = 'autoreport'
+    tcycle_prefix_desc = f'TM4J test cycle prefix ("{tcycle_default}" makes {tcycle_default}-<UNIX epoch>)'
+    parser.addini('tm4j_testcycle_prefix', tcycle_prefix_desc, default=tcycle_default)
+
+    parser.addini('tm4j_project_webui_host', 'TM4J project webui host (e.g. klika-tech.atlassian.net)')
 
 
-def pytest_configure(config):
-    # Activates the plugin if a --tm4j flag passed to pytest cmdline
+def pytest_configure(config: Config):
+    # Activates the plugin if a --tm4j flag found in pytest cmdline
     if not config.option.tm4j:
         return
-    Plugin = TM4JReporter
-    plugin = Plugin(config)
+    plugin = TM4JReporter(config)
     config._tm4j_report = plugin
     config.pluginmanager.register(plugin)
