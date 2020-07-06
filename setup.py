@@ -1,14 +1,35 @@
 from setuptools import setup, find_packages
 
-with open('requirements.txt') as reqs_obj:
-    reqs = [i.strip('\n') for i in reqs_obj]
+
+def get_reqs():
+    with open('requirements.txt') as reqs_obj:
+        return [i.strip('\n') for i in reqs_obj if not i.startswith('#')]
+
 
 setup(
-    name='pytest-tm4j-reporter',
-    description='Generate a JSON report for publishing to TM4J',
-    version='0.0.1',
+    author="Ilya Pollyak",
+    author_email="ipollyak@klika-tech.com",
+    classifiers=[
+        "Framework :: Pytest",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Software Development :: Quality Assurance",
+        "Topic :: Software Development :: Testing",
+        "Topic :: Utilities",
+    ],
+    description="TM4J ",
+    entry_points={'pytest11': ["tm4j_reporter = pytest_tm4j_reporter.reporter"]},
+    install_requires=get_reqs(),
+    keywords="python pytest tm4j jira test testmanagement report",
+    license="MIT",
+    name="pytest-tm4j-reporter",
     packages=find_packages(),
-    entry_points={'pytest11': ['tm4j_reporter = tm4j_reporter.reporter']},
-    install_requires=reqs,
-    classifiers=['Framework :: Pytest'],
+    platforms="any",
+    python_requires=">=3.7",
+    url="https://gitlab.klika-tech.com/qa/tm4j_reporter_pytest",
+    version='0.0.1',
 )

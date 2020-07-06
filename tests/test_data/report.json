@@ -1,1 +1,1 @@
-{"tests": {"T303": {"name": "one", "outcome": "Pass", "steps": ["test one step A", "test one step B"], "summary": "test one summary"}, "T304": {"name": "two", "outcome": "Fail", "steps": ["test two step A", "test two step B"], "summary": "test two summary. should fail"}}}
+{"tests": {"T1701": {"name": "one", "outcome": "Pass", "steps": ["test one step A", "test one step B"], "summary": "test one summary"}, "T1702": {"name": "two", "outcome": "Fail", "steps": ["test two step A", "test two step B"], "summary": "test two summary. should fail"}}}
