@@ -18,31 +18,44 @@ The plugin uploads test results to TM4J test cycle using its API
 Run pytest with '--tm4j' argument: this will generate a report AND upload it to TM4J
 
 ### Plugin configuration
-pytest.ini "pytest" section  
-All parameters are mandatory if "optional" is not specified 
+pytest.ini "pytest" section
+All parameters are mandatory if "optional" is not specified
 
-**Parameter**: tm4j_project_prefix  
-**Description**: TM4J project prefix without trailing dash  
-**Example**: QT  
-  
-**Parameter**: tm4j_api_key  
-**How to get**: open Jira - "Your profile and settings" button at upper-right - Test Management for Jira API keys - Create access key  
-**Example**: a JWT token  
+**Parameter**: tm4j_project_prefix
+**Description**: TM4J project prefix without trailing dash
+**Example**: QT
 
-**Parameter**: tm4j_testcycle_key (optional)  
-**Description**: TM4J existing test cycle key. A new test cycle created if not specified  
-**Example**: R40  
+**Parameter**: tm4j_api_key
+**How to get**: open Jira - "Your profile and settings" button at upper-right - Test Management for Jira API keys - Create access key
+**Example**: a JWT token
 
-**Parameter**: tm4j_testcycle_prefix (optional. default = autoreport)  
+**Parameter**: tm4j_testcycle_key (optional)
+**Description**: TM4J existing test cycle key. A new test cycle created if not specified
+**Example**: R40
+
+**Parameter**: tm4j_testcycle_prefix (optional. default = autoreport)
 **Description**: TM4J test cycle prefix for creating a new testcycle when no existing one specified
 **Example**: "autoreport" makes autoreport-<UNIX epoch time>
- 
-**Parameter**: tm4j_project_webui_host (optional)  
-**Description**: TM4J project webui host. If specified, a URL for testrun added to pytest output
-**Example**: klika-tech.atlassian.net  
 
-The same parameters can be passed via sys env vars (the name is the same)  
+**Parameter**: tm4j_project_webui_host (optional)
+**Description**: TM4J project webui host. If specified, a URL for testrun added to pytest output
+**Example**: klika-tech.atlassian.net
+
+The same parameters can be passed via sys env vars (the name is the same)
 Sys env vars override the same values in pytest.ini
+
+### Usage
+
+TODO
+
+#### Metadata
+It is possible to add and report additional metadata using `tm4j` fixture. Currently supported only `comment`. Example:
+
+```python
+def test_T1701_my_test(tm4j_r):
+    tm4j_r.comment = 'Here might be some comment for this test'
+
+```
 
 ### Result
 * .report.json file created in CWD
