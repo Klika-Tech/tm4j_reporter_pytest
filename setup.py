@@ -30,6 +30,6 @@ setup(
     packages=find_packages(),
     platforms="any",
     python_requires=">=3.7",
-    url="https://gitlab.klika-tech.com/qa/tm4j_reporter_pytest",
+    url="https://github.com/Klika-Tech/tm4j_reporter_pytest",
     version='0.0.1',
 )
