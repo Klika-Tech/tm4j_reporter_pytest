@@ -1,8 +1,6 @@
 # Project summary
-[TM4J]((https://support.smartbear.com/tm4j-cloud/docs/index.html))
-is a Test Management for Jira
+Pytest plugin which allows to upload test execution result to [TM4J Cloud](https://support.smartbear.com/tm4j-cloud/docs/index.html) version. Plugin works on the top of the `json-reporter` pytest plugin and `tm4j_reporter_api` library.
 
-The plugin allows to upload pytest execution result to TM4J Cloud version. Plugin works on the top of the `json-reporter` pytest plugin and `tm4j_reporter_api` library.
 
 # Install and setup
 ## How to build
@@ -12,9 +10,9 @@ The plugin allows to upload pytest execution result to TM4J Cloud version. Plugi
     # PyPi
     pip install pytest-tm4j-reporter
     # Git
-    pip install git+ssh://git@gitlab.klika-tech.com/qa/tm4j_reporter_pytest.git
+    pip install git+ssh://git@github.com:Klika-Tech/tm4j_reporter_pytest.git
 
-### Plugin configuration
+## Plugin configuration
 
 Create `pytest.ini` within your project and put the variables there (see below table)
 
@@ -39,12 +37,21 @@ tm4j_project_webui_host = klika-tech.atlassian.net
 
 # Usage
 
-### How to run
-Run pytest with '--tm4j' argument: this will generate a report AND upload it to TM4J
+## Writing the tests
+To be able to report your test to TM4J your test names should follow convetion: `test_T<TM4J test id>_the_rest_of_test_name.`
+So workflow will be:
+*  Create test case in TM4J (from UI)
+*  Notice it's unique id
+*  Create test in pytest with TM4J prefix in name.
 
-TODO
+Let's say in TM4J project with project key `QT` full test key is `QT-T1234`. In this case in pytest it should be created like
 
-### Metadata
+```python
+def test_T1234_login_as_user():
+    ...test code goes here
+```
+
+## Metadata
 It is possible to add and report additional metadata using `tm4j` fixture. Currently supported only `comment`. Example:
 
 ```python
@@ -52,12 +59,22 @@ def test_T1701_my_test(tm4j_r):
     tm4j_r.comment = 'Here might be some comment for this test'
 
 ```
-Please note that if you use `tm4j_r` fixture you won't be able to run test without enabling plugin `--tm4j`
+Please note that if you use `tm4j_r` fixture you won't be able to run the test without enabling plugin `--tm4j`
 
-### Result
+## How to run
+Finally we're ready to run our test(s) with reporting to TM4J. It is simple as just run pytest with `--tm4j` option
+
+```bash
+pytest --tm4j
+```
+
+## Result
 * .report.json file created in CWD
 * The file is overwritten each time
 * Execution result is uploaded to TM4J
 
 # Developer notes
 * Line wrapping border = 120 chars
+
+# License
+This software is licensed under the [MIT License](http://en.wikipedia.org/wiki/MIT_License)
