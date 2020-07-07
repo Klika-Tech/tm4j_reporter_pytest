@@ -1,6 +1,5 @@
 from copy import deepcopy
 from json import load
-from os import environ
 from re import match
 from time import time
 from typing import Union
@@ -44,7 +43,8 @@ class TM4JReporter:
             attr = param.split('tm4j_')[-1]  # strip tm4j_ prefix
             value = config.getini(param)
             if not value and param in mandatory_param_list:
-                raise AssertionError(f"You tried to run pytest with tm4j reporter but not provided all required params. tm4j_{param} is missing in ini file. See README for details")
+                raise AssertionError(f"You tried to run pytest with tm4j reporter but not provided all required params. \
+                        tm4j_{param} is missing in ini file. See README for details")
             setattr(self, attr, value)
 
     def pytest_configure(self, config: Config):
@@ -148,7 +148,7 @@ class TM4JReporter:
             test_name_wo_module = test_name_full.split('::')[-1]
             # test_T303_one
 
-            tm4j_num_ptrn = f'{self.prefix_test}\d+'
+            tm4j_num_ptrn = f'{self.prefix_test}' + r'\d+'
             t_name_ptrn = '.*'
             is_test_valid_tm4j = match(
                 f'^.*_({tm4j_num_ptrn})_({t_name_ptrn})', test_name_wo_module)

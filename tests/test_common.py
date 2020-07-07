@@ -51,7 +51,7 @@ def test_verify_output_json_structure():
     else:
         raise AssertionError('a test without TM4J ID is not listed in warning message')
 
-    with open(f'test_data/report.json') as orig_obj:
+    with open('test_data/report.json') as orig_obj:
         orig = load(orig_obj)
     with open(report_fname) as rcvd_obj:
         rcvd = load(rcvd_obj)
