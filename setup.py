@@ -21,7 +21,7 @@ setup(
         "Topic :: Software Development :: Testing",
         "Topic :: Utilities",
     ],
-    description="TM4J ",
+    description="TM4J pytest reporter plugin",
     entry_points={'pytest11': ["tm4j_reporter = pytest_tm4j_reporter.reporter"]},
     install_requires=get_reqs(),
     keywords="python pytest tm4j jira test testmanagement report",
