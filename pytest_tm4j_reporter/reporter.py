@@ -4,6 +4,7 @@ from os import environ
 from re import match
 from time import time
 from typing import Union
+from itertools import chain
 
 import pytest
 from _pytest.config import Config
@@ -26,24 +27,24 @@ class TM4JReporter:
 
     def _load_config_params(self, config: Config):
         """
-        Load config params from pytest.ini or sys env variables to TM4JReporter obj attributes
+        Load config params from pytest.ini to TM4JReporter obj attributes
         The sys env variables with the same name override the ones from pytest.ini
         :param config: config pytest object
         """
-        param_list = [
+        mandatory_param_list = [
             'tm4j_project_prefix',
             'tm4j_api_key',
-            'tm4j_testcycle_key',
-            'tm4j_project_webui_host',
-            'tm4j_testcycle_prefix']
+            ]
 
-        for param in param_list:
-            assert param.startswith('tm4j_')
+        optional_param_list = ['tm4j_testcycle_key',
+                               'tm4j_project_webui_host',
+                               'tm4j_testcycle_prefix']
+
+        for param in chain(mandatory_param_list, optional_param_list):
             attr = param.split('tm4j_')[-1]  # strip tm4j_ prefix
-            if param in environ.keys():
-                value = environ[param]
-            else:
-                value = config.getini(param)
+            value = config.getini(param)
+            if not value and param in mandatory_param_list:
+                raise AssertionError(f"You tried to run pytest with tm4j reporter but not provided all required params. tm4j_{param} is missing in ini file. See README for details")
             setattr(self, attr, value)
 
     def pytest_configure(self, config: Config):
