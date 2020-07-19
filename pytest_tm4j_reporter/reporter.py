@@ -1,16 +1,14 @@
 from copy import deepcopy
+from datetime import datetime
+from itertools import chain
 from json import load
 from re import match
-from time import time
 from typing import Union
-from itertools import chain
 
 import pytest
 from _pytest.config import Config
 from pytest_jsonreport.plugin import JSONReport
-
-from tm4j_reporter_api.tm4j_api.tm4j_api import (
-    create_test_execution_result, create_test_cycle, configure_tm4j_api)
+from tm4j_reporter_api.tm4j_api.tm4j_api import create_test_execution_result, create_test_cycle, configure_tm4j_api
 
 
 class TM4JReporter:
@@ -195,7 +193,9 @@ class TM4JReporter:
 
         if self.testcycle_key == '':
             print('[TM4J] Creating a new test cycle...')
-            tcycle_name = f'{self.testcycle_prefix}-{int(time())}'
+            timestamp = datetime.now().utcnow().strftime('%d-%b-%Y %H:%M:%S UTC')
+            # e.g. 19-Jul-2020 19:33:00 UTC
+            tcycle_name = f'{self.testcycle_prefix} {timestamp}'
             tcycle_key_full = create_test_cycle(tcycle_name)
             # e.g. tcycle_key_full: QT-R64
             self.testcycle_key = tcycle_key_full.split('-')[-1]
