@@ -29,7 +29,7 @@ def run_test(exp_rc: int = 0, environment: Union[dict, None] = None):
     """
     if path.isfile(report_fname):
         remove(report_fname)
-    cmd = 'pytest --tm4j common/report_tests.py'.split()
+    cmd = 'pytest -p pytest_tm4j_reporter.reporter --tm4j common/report_tests.py'.split()
     new_env = environ.copy()
     if environment:
         new_env.update(environment)
