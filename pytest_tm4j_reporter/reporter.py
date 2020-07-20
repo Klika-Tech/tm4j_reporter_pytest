@@ -245,7 +245,8 @@ def pytest_addoption(parser):
     parser.addini('tm4j_testcycle_key', 'TM4J existing test cycle key (e.g. R43)')
 
     tcycle_default = 'autoreport'
-    tcycle_prefix_desc = f'TM4J test cycle prefix ("{tcycle_default}" makes {tcycle_default}-<UNIX epoch>)'
+    tcycle_prefix_desc = f'TM4J test cycle prefix ("{tcycle_default}" ' \
+                         f'makes "{tcycle_default} <14-Jul-2020 16:41:24 UTC>)"'
     parser.addini('tm4j_testcycle_prefix', tcycle_prefix_desc, default=tcycle_default)
 
     parser.addini('tm4j_project_webui_host', 'TM4J project webui host (e.g. klika-tech.atlassian.net)')
