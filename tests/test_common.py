@@ -70,6 +70,9 @@ def test_publish_existing_testcycle():
     print('CHECK: publish result reported')
     # no real check because the api client does not return result
     # todo: api client to return result
+    expected = f'[TM4J] Using existing test cycle: key={project_prefix}-{tcycle_key}'
+    assert expected in output, f'got: {output}'
+
     expected = f'[TM4J] Report published. Project: {project_prefix}. Test cycle key: {tcycle_key}'
     assert expected in output, f'got: {output}'
 
