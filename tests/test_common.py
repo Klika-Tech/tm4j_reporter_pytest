@@ -79,8 +79,10 @@ def test_publish_existing_testcycle():
 
 def test_publish_create_testcycle():
     project_prefix = get_plugin_cfg('tm4j_project_prefix')
+    tcycle_desc = get_plugin_cfg('tm4j_testcycle_description')
+
     output = run_test(exp_rc=1)
-    exp1 = '[TM4j] Created a new test cycle'
+    exp1 = '[TM4J] Created a new test cycle'
     exp2_raw = r'\[TM4J\] Report published\. Project: project_prefix\. Test cycle key: R\d+'
     exp2 = exp2_raw.replace('project_prefix', project_prefix)
     assert exp1 in output, f'\nexpected: {exp1}\ngot: {output}'
@@ -89,6 +91,9 @@ def test_publish_create_testcycle():
             break
     else:
         raise AssertionError(f'\n{exp2} not found in output:\n{output}')
+
+    exp3 = f'[TM4J] Test cycle description: {tcycle_desc}'
+    assert exp3 in output, f'got: {output}'
 
 
 @mark.xfail
