@@ -2,6 +2,7 @@ from copy import deepcopy
 from datetime import datetime
 from itertools import chain
 from json import load
+from os import environ
 from re import match
 from typing import Union
 
@@ -35,15 +36,24 @@ class TM4JReporter:
 
         optional_param_list = ['tm4j_testcycle_key',
                                'tm4j_project_webui_host',
-                               'tm4j_testcycle_prefix']
+                               'tm4j_testcycle_prefix',
+                               ]
 
+        mandatory_absent = []
         for param in chain(mandatory_param_list, optional_param_list):
             attr = param.split('tm4j_')[-1]  # strip tm4j_ prefix
-            value = config.getini(param)
+            if param in environ.keys():
+                value = environ[param]
+            else:
+                value = config.getini(param)  # '' if not found
+
             if not value and param in mandatory_param_list:
-                raise AssertionError(f"You tried to run pytest with tm4j reporter but not provided all required params. \
-                        tm4j_{param} is missing in ini file. See README for details")
+                mandatory_absent.append(param)
             setattr(self, attr, value)
+        if mandatory_absent:
+            raise AssertionError(f"The following mandatory parameters not found in config or in sys env vars:\n"
+                                 f"{', '.join(mandatory_absent)}\n"
+                                 f"See README for list of parameters and their descriptions")
 
     def pytest_configure(self, config: Config):
         if not hasattr(config, '_tm4j_report'):
@@ -200,7 +210,7 @@ class TM4JReporter:
             # e.g. tcycle_key_full: QT-R64
             self.testcycle_key = tcycle_key_full.split('-')[-1]
             # e.g. self.testcycle_key: R64
-            print(f'[TM4j] Created a new test cycle: key={tcycle_key_full}, name={tcycle_name}')
+            print(f'[TM4j] Created a new test cycle: key={tcycle_key_full}, name="{tcycle_name}"')
         else:
             tcycle_key_full = f'{self.project_prefix}-{self.testcycle_key}'
             print(f'[TM4J] Using existing test cycle: key={tcycle_key_full}')
