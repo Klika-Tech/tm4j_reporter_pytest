@@ -52,14 +52,21 @@ def test_T1234_login_as_user():
 ```
 
 ## Metadata
-It is possible to add and report additional metadata using `tm4j` fixture. Currently supported only `comment`. Example:
+It is possible to add and report additional metadata using `tm4j_r` fixture. Currently supported only `comment`. Example:
 
 ```python
 def test_T1701_my_test(tm4j_r):
-    tm4j_r.comment = 'Here might be some comment for this test'
-
+    tm4j_r.comment = 'Here might be some comment for this test<br>second line here<br>third line here'
 ```
-Please note that if you use `tm4j_r` fixture you won't be able to run the test without enabling plugin `--tm4j`
+
+The published comment field will also contain a crash info in case if the test execution fails. Example:
+```text
+crash info:
+path: /opt/work/tm4j_reporter_pytest/tests/common/report_tests.py
+lineno: 17
+message: assert False
+```
+Please note that if you use tm4j_r fixture you won't be able to run the test without enabling plugin `--tm4j`
 
 ## How to run
 Finally we're ready to run our test(s) with reporting to TM4J. It is simple as just run pytest with `--tm4j` option
