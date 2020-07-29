@@ -21,6 +21,7 @@ class TM4JReporter:
         self.testcycle_key = None
         self.report = None
         self.testcycle_prefix = None
+        self.testcycle_description = ''
         self.project_webui_host = None
 
     def _load_config_params(self, config: Config):
@@ -37,6 +38,7 @@ class TM4JReporter:
         optional_param_list = ['tm4j_testcycle_key',
                                'tm4j_project_webui_host',
                                'tm4j_testcycle_prefix',
+                               'tm4j_testcycle_description',
                                ]
 
         mandatory_absent = []
@@ -201,16 +203,23 @@ class TM4JReporter:
 
         configure_tm4j_api(self.api_key, self.project_prefix)
 
-        if self.testcycle_key == '':
+        if not self.testcycle_key:
             print('[TM4J] Creating a new test cycle...')
             timestamp = datetime.now().utcnow().strftime('%d-%b-%Y %H:%M:%S UTC')
             # e.g. 19-Jul-2020 19:33:00 UTC
             tcycle_name = f'{self.testcycle_prefix} {timestamp}'
-            tcycle_key_full = create_test_cycle(tcycle_name)
+
+            if self.testcycle_description:
+                tcycle_key_full = create_test_cycle(tcycle_name, description=self.testcycle_description)
+            else:
+                tcycle_key_full = create_test_cycle(tcycle_name)
+
             # e.g. tcycle_key_full: QT-R64
             self.testcycle_key = tcycle_key_full.split('-')[-1]
             # e.g. self.testcycle_key: R64
-            print(f'[TM4j] Created a new test cycle: key={tcycle_key_full}, name="{tcycle_name}"')
+            print(f'[TM4J] Created a new test cycle: key={tcycle_key_full}, name="{tcycle_name}"')
+            if self.testcycle_description:
+                print(f'[TM4J] Test cycle description: {self.testcycle_description}')
         else:
             tcycle_key_full = f'{self.project_prefix}-{self.testcycle_key}'
             print(f'[TM4J] Using existing test cycle: key={tcycle_key_full}')
@@ -248,6 +257,10 @@ def pytest_addoption(parser):
     tcycle_prefix_desc = f'TM4J test cycle prefix ("{tcycle_default}" ' \
                          f'makes "{tcycle_default} <14-Jul-2020 16:41:24 UTC>)"'
     parser.addini('tm4j_testcycle_prefix', tcycle_prefix_desc, default=tcycle_default)
+
+    tcycle_desc_param = 'Description for the new test cycle. ' \
+                        'A description for the existing test cycle won\'t be changed'
+    parser.addini('tm4j_testcycle_description', tcycle_desc_param, default='')
 
     parser.addini('tm4j_project_webui_host', 'TM4J project webui host (e.g. klika-tech.atlassian.net)')
 
