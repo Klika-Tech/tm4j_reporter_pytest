@@ -24,6 +24,7 @@ Create `pytest.ini` within your project and put the variables there (see below t
 | tm4j_testcycle_prefix      | No        | Prefix for new test cycle. Default: autoreport. Full test cycle name is "<prefix> <day-month-year hh:mm:ss UTC>". e.g. "14-Jul-2020 16:41:24 UTC"      | Login autotests          |
 | tm4j_testcycle_description | No        | Description for the new test cycle. A description for the existing test cycle won't be changed                                                         | Update v14.43.136        |
 | tm4j_project_webui_host    | No        | Jira server base host. If provided will generate a link to a newly created test cycle                                                                  | klika-tech.atlassian.net |
+| tm4j_result_mapping        | No        | How to map test result - Pytest vs TM4J. tm4j-default (default) or pytest. see "Result mapping" section                                                | tm4j-default             |
 
 Example:
 
@@ -52,6 +53,34 @@ Let's say in TM4J project with project key `QT` full test key is `QT-T1234`. In 
 def test_T1234_login_as_user():
     ...test code goes here
 ```
+
+## Result mapping
+Pytest has test result status names different from TM4J  
+The mapping is configured via **tm4j_result_mapping** parameter (optional)  
+
+Possible values: tm4j-default (default), pytest  
+By default, the statuses are mapped according to the following scheme:  
+
+ Pytest   | TM4J         | Description
+ ---------|--------------|-------------
+ passed   | Pass         | 
+ failed   | Fail         |
+ skipped  | Not executed |
+ xfailed  | Pass         | Failed, as it should
+ xpassed  | Fail         | Should fail, but was passed
+
+TM4J test result statuses are configurable  
+For more precise mapping, pytest statuses can be added to TM4J via its UI
+
+ Pytest   | TM4J
+ ---------|------
+ passed   | Pass 
+ failed   | Fail
+ skipped  | Skip
+ xfailed  | xFail
+ xpassed  | xPass
+
+tm4j_result_mapping=pytest will activate this scheme  
 
 ## Metadata
 It is possible to add and report additional metadata using `tm4j` fixture. Currently supported only `comment`. Example:

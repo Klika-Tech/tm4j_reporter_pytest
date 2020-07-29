@@ -23,6 +23,12 @@ class TM4JReporter:
         self.testcycle_prefix = None
         self.testcycle_description = ''
         self.project_webui_host = None
+        self.result_mapping = None
+
+    def _param_validation(self):
+        if self.result_mapping:
+            allowed = ['tm4j-default', 'pytest']
+            assert self.result_mapping in allowed, f'tm4j_result_mapping param value unknown: {self.result_mapping}'
 
     def _load_config_params(self, config: Config):
         """
@@ -39,6 +45,7 @@ class TM4JReporter:
                                'tm4j_project_webui_host',
                                'tm4j_testcycle_prefix',
                                'tm4j_testcycle_description',
+                               'tm4j_result_mapping',
                                ]
 
         mandatory_absent = []
@@ -52,6 +59,9 @@ class TM4JReporter:
             if not value and param in mandatory_param_list:
                 mandatory_absent.append(param)
             setattr(self, attr, value)
+
+        self._param_validation()
+
         if mandatory_absent:
             raise AssertionError(f"The following mandatory parameters not found in config or in sys env vars:\n"
                                  f"{', '.join(mandatory_absent)}\n"
@@ -123,16 +133,39 @@ class TM4JReporter:
         request.node.comment = m.comment
         return m
 
-    @staticmethod
-    def _resolve_outcome(outcome: str) -> str:
+    def _resolve_outcome(self, outcome: str) -> str:
         """
         Map pytest test outcome to tm4j outcome
         """
         # A key is for pytest, value is for TM4J
-        outcomes = {
+        outcomes_base = {
             'passed': 'Pass',
             'failed': 'Fail'}
-        return outcomes[outcome]
+
+        outcomes_tm4j_default = outcomes_base.copy()
+        outcomes_tm4j_default.update({
+                'skipped': 'Not executed',
+                'xfailed': 'Pass',
+                'xpassed': 'Fail'})
+
+        outcomes_pytest = outcomes_base.copy()
+        outcomes_pytest.update({
+            'skipped': 'Skip',
+            'xfailed': 'xFail',
+            'xpassed': 'xPass'})
+
+        if self.result_mapping == 'tm4j-default':
+            outcomes = outcomes_tm4j_default
+        elif self.result_mapping == 'pytest':
+            outcomes = outcomes_pytest
+        else:
+            raise AssertionError(f'unknown mapping scheme: {self.result_mapping}')
+
+        try:
+            tm4j_outcome = outcomes[outcome]
+        except KeyError:
+            raise AssertionError(f'unknown pytest outcome: {outcome}')
+        return tm4j_outcome
 
     def prepare_tm4j_report_json(self, pytest_json: dict) -> dict:
         """
@@ -263,6 +296,9 @@ def pytest_addoption(parser):
     parser.addini('tm4j_testcycle_description', tcycle_desc_param, default='')
 
     parser.addini('tm4j_project_webui_host', 'TM4J project webui host (e.g. klika-tech.atlassian.net)')
+
+    result_mapping_desc = 'How to map test result - Pytest vs TM4J. tm4j-default (default) or pytest. see README'
+    parser.addini('tm4j_result_mapping', result_mapping_desc, default='tm4j-default')
 
 
 def pytest_configure(config: Config):
