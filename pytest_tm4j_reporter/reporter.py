@@ -204,6 +204,19 @@ class TM4JReporter:
             results[tm4j_num] = {
                 'name': test_name,
                 'outcome': self._resolve_outcome(test_dict['outcome'])}
+
+            # append to comments: crash info
+            if 'crash' in test_dict['call']:
+                crash = test_dict['call']['crash']
+                crash_msg = f"crash info:<br>" \
+                            f"path: {crash['path']}<br>" \
+                            f"lineno: {crash['lineno']}<br>" \
+                            f"message: {crash['message']}<br>"
+                if test_dict['metadata']['comment'] is not None:
+                    test_dict['metadata']['comment'] += f'<br><br>{crash_msg}'
+                else:
+                    test_dict['metadata']['comment'] = crash_msg
+
             results[tm4j_num].update(test_dict['metadata'])
 
         if tests_wo_tm4j_id:
