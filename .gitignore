@@ -1,5 +1,6 @@
-!.gitignore
+.idea
 dist
 pytest_tm4j_reporter.egg-info
 venv
 __pycache__
+.pytest_cache

@@ -38,8 +38,9 @@ class TM4JReporter:
         """
         mandatory_param_list = [
             'tm4j_project_prefix',
-            'tm4j_api_key',
             ]
+        if not self._config.option.tm4j_no_publish:
+            mandatory_param_list.append('tm4j_api_key')
 
         optional_param_list = ['tm4j_testcycle_key',
                                'tm4j_project_webui_host',
@@ -288,12 +289,16 @@ class TM4JReporter:
 
     def pytest_unconfigure(self, config: Config):
         assert isinstance(config, Config)  # "config" object is not used, but required for the pytest hook
+        if config.option.tm4j_no_publish:
+            print('[TM4J] Execution results publishing skipped')
+            return
         self.report_publish()
 
 
 def pytest_addoption(parser):
     group = parser.getgroup('tm4j', 'Reporting test results to TM4J')
     group.addoption('--tm4j', default=False, action='store_true', help='Report test results to TM4J')
+    group.addoption('--tm4j-no-publish', default=False, action='store_true', help='Do not send results to TM4J')
 
     parser.addini('tm4j_project_prefix', 'TM4J project prefix without trailing dash (e.g. SWDEV)')
     parser.addini('tm4j_api_key', 'TM4J API key')

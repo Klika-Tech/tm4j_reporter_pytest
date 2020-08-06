@@ -100,7 +100,8 @@ message: assert False
 Please note that if you use tm4j_r fixture you won't be able to run the test without enabling plugin `--tm4j`
 
 ## How to run
-Finally we're ready to run our test(s) with reporting to TM4J. It is simple as just run pytest with `--tm4j` option
+Finally we're ready to run our test(s) with reporting to TM4J. It is simple as just run pytest with `--tm4j` option  
+`--tm4j-no-publish` flag can be used if you don't want to publish your execution results to TM4J
 
 ```bash
 pytest --tm4j
