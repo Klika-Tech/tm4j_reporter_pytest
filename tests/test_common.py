@@ -21,15 +21,19 @@ def get_plugin_cfg(key: str) -> str:
     return c['pytest'][key]
 
 
-def run_test(exp_rc: int = 0, environment: Union[dict, None] = None):
+def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=True):
     """
     args: list of pytest cmdline arguments
+    :param publish: publish results to TM4J
     :param exp_rc: expected return code
-    :type environment: sys env vars
+    :param environment: sys env vars
     """
     if path.isfile(report_fname):
         remove(report_fname)
-    cmd = 'pytest -p pytest_tm4j_reporter.reporter --tm4j common/report_tests.py'.split()
+    cmd = 'pytest -p pytest_tm4j_reporter.reporter --tm4j'.split()
+    if not publish:
+        cmd.append('--tm4j-no-publish')
+    cmd.append('common/report_tests.py')
     new_env = environ.copy()
     if environment:
         new_env.update(environment)
@@ -37,12 +41,13 @@ def run_test(exp_rc: int = 0, environment: Union[dict, None] = None):
     cmd_run = run(cmd, capture_output=True, env=new_env)
 
     output = cmd_run.stdout.decode()
-    assert cmd_run.returncode == exp_rc
+    err = cmd_run.stderr.decode()
+    assert cmd_run.returncode == exp_rc, f'got stdout:\n{output}\ngot stderr:\n{err}'
     return output
 
 
 def test_verify_output_json_structure():
-    output = run_test(exp_rc=1)
+    output = run_test(exp_rc=1, publish=False)
     print('CHECK: tests without a TM4J ID are listed as warning in stdout')
     expected_ptrn = 'tests affected:.*report_tests.py::test_withoutTm4jId_two'
     for line in output.split('\n'):
