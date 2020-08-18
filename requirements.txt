@@ -1,3 +1,4 @@
 pytest
 pytest-json-report
-TM4JReporterAPI @ git+ssh://git@github.com/Klika-Tech/tm4j_reporter_api.git
+tm4j-reporter-api
+# TM4JReporterAPI @ git+ssh://git@github.com/Klika-Tech/tm4j_reporter_api.git
