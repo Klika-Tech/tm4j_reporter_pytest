@@ -1,6 +1,7 @@
 from configparser import ConfigParser
 from json import load
 from os import remove, path, environ
+from pathlib import Path
 from re import match
 from subprocess import run
 from typing import Union
@@ -21,7 +22,7 @@ def get_plugin_cfg(key: str) -> str:
     return c['pytest'][key]
 
 
-def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=True):
+def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=True) -> str:
     """
     args: list of pytest cmdline arguments
     :param publish: publish results to TM4J
@@ -30,11 +31,14 @@ def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=Tru
     """
     if path.isfile(report_fname):
         remove(report_fname)
-    cmd = 'pytest -p pytest_tm4j_reporter.reporter --tm4j'.split()
+    cmd = 'pytest --tm4j'.split()
     if not publish:
         cmd.append('--tm4j-no-publish')
     cmd.append('common/report_tests.py')
     new_env = environ.copy()
+    plugin_location = Path.cwd().parent.as_posix()
+    new_env['PYTHONPATH'] = plugin_location
+
     if environment:
         new_env.update(environment)
 
@@ -42,6 +46,7 @@ def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=Tru
 
     output = cmd_run.stdout.decode()
     err = cmd_run.stderr.decode()
+    assert err == '', print(err)
     assert cmd_run.returncode == exp_rc, f'got stdout:\n{output}\ngot stderr:\n{err}'
     return output
 
