@@ -42,7 +42,7 @@ def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=Tru
     new_env['PYTHONPATH'] = plugin_location
 
     new_env['PYTHONDONTWRITEBYTECODE'] = '1'
-    # new_env['PYTEST_PLUGINS'] = 'pytest_tm4j_reporter.reporter'
+    new_env['PYTEST_PLUGINS'] = 'pytest_tm4j_reporter.reporter'
 
     if environment:
         new_env.update(environment)
