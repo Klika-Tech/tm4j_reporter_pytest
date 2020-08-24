@@ -31,13 +31,18 @@ def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=Tru
     """
     if path.isfile(report_fname):
         remove(report_fname)
-    cmd = 'pytest --tm4j'.split()
+    cmd = 'python -m pytest -p no:cacheprovider --tm4j'.split()
     if not publish:
         cmd.append('--tm4j-no-publish')
     cmd.append('common/report_tests.py')
     new_env = environ.copy()
+
     plugin_location = Path.cwd().parent.as_posix()
+    print('plugin location:', plugin_location)
     new_env['PYTHONPATH'] = plugin_location
+
+    new_env['PYTHONDONTWRITEBYTECODE'] = '1'
+    #new_env['PYTEST_PLUGINS'] = 'pytest_tm4j_reporter.reporter'
 
     if environment:
         new_env.update(environment)
