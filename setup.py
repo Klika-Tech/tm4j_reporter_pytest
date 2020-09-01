@@ -7,8 +7,8 @@ def get_reqs():
 
 
 setup(
-    author="Ilya Pollyak",
-    author_email="ipollyak@klika-tech.com",
+    author="",
+    author_email="contact@klika-tech.com",
     classifiers=[
         "Framework :: Pytest",
         "Intended Audience :: Developers",
@@ -31,5 +31,5 @@ setup(
     platforms="any",
     python_requires=">=3.7",
     url="https://github.com/Klika-Tech/tm4j_reporter_pytest",
-    version='0.0.1',
+    version='0.1.1',
 )
