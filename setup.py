@@ -40,5 +40,5 @@ setup(
     platforms="any",
     python_requires=">=3.6",
     url="https://github.com/Klika-Tech/tm4j_reporter_pytest",
-    version='0.1.1',
+    version='0.1.2',
 )
