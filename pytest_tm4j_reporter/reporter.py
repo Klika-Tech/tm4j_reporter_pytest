@@ -3,18 +3,17 @@
 # the LICENSE file or at https://opensource.org/licenses/MIT.
 
 from copy import deepcopy
-from json import load
-from re import match
-from time import time
-from typing import Union
+from datetime import datetime
 from itertools import chain
+from json import load
+from os import environ
+from re import match
+from typing import Union
 
 import pytest
 from _pytest.config import Config
 from pytest_jsonreport.plugin import JSONReport
-
-from tm4j_reporter_api.tm4j_api.tm4j_api import (
-    create_test_execution_result, create_test_cycle, configure_tm4j_api)
+from tm4j_reporter_api.tm4j_api.tm4j_api import create_test_execution_result, create_test_cycle, configure_tm4j_api
 
 
 class TM4JReporter:
@@ -26,7 +25,14 @@ class TM4JReporter:
         self.testcycle_key = None
         self.report = None
         self.testcycle_prefix = None
+        self.testcycle_description = ''
         self.project_webui_host = None
+        self.result_mapping = None
+
+    def _param_validation(self):
+        if self.result_mapping:
+            allowed = ['tm4j-default', 'pytest']
+            assert self.result_mapping in allowed, f'tm4j_result_mapping param value unknown: {self.result_mapping}'
 
     def _load_config_params(self, config: Config):
         """
@@ -36,20 +42,35 @@ class TM4JReporter:
         """
         mandatory_param_list = [
             'tm4j_project_prefix',
-            'tm4j_api_key',
             ]
+        if not self._config.option.tm4j_no_publish:
+            mandatory_param_list.append('tm4j_api_key')
 
         optional_param_list = ['tm4j_testcycle_key',
                                'tm4j_project_webui_host',
-                               'tm4j_testcycle_prefix']
+                               'tm4j_testcycle_prefix',
+                               'tm4j_testcycle_description',
+                               'tm4j_result_mapping',
+                               ]
 
+        mandatory_absent = []
         for param in chain(mandatory_param_list, optional_param_list):
             attr = param.split('tm4j_')[-1]  # strip tm4j_ prefix
-            value = config.getini(param)
+            if param in environ.keys():
+                value = environ[param]
+            else:
+                value = config.getini(param)  # '' if not found
+
             if not value and param in mandatory_param_list:
-                raise AssertionError(f"You tried to run pytest with tm4j reporter but not provided all required params. \
-                        tm4j_{param} is missing in ini file. See README for details")
+                mandatory_absent.append(param)
             setattr(self, attr, value)
+
+        self._param_validation()
+
+        if mandatory_absent:
+            raise AssertionError(f"The following mandatory parameters not found in config or in sys env vars:\n"
+                                 f"{', '.join(mandatory_absent)}\n"
+                                 f"See README for list of parameters and their descriptions")
 
     def pytest_configure(self, config: Config):
         if not hasattr(config, '_tm4j_report'):
@@ -117,16 +138,39 @@ class TM4JReporter:
         request.node.comment = m.comment
         return m
 
-    @staticmethod
-    def _resolve_outcome(outcome: str) -> str:
+    def _resolve_outcome(self, outcome: str) -> str:
         """
         Map pytest test outcome to tm4j outcome
         """
         # A key is for pytest, value is for TM4J
-        outcomes = {
+        outcomes_base = {
             'passed': 'Pass',
             'failed': 'Fail'}
-        return outcomes[outcome]
+
+        outcomes_tm4j_default = outcomes_base.copy()
+        outcomes_tm4j_default.update({
+                'skipped': 'Not executed',
+                'xfailed': 'Pass',
+                'xpassed': 'Fail'})
+
+        outcomes_pytest = outcomes_base.copy()
+        outcomes_pytest.update({
+            'skipped': 'Skip',
+            'xfailed': 'xFail',
+            'xpassed': 'xPass'})
+
+        if self.result_mapping == 'tm4j-default':
+            outcomes = outcomes_tm4j_default
+        elif self.result_mapping == 'pytest':
+            outcomes = outcomes_pytest
+        else:
+            raise AssertionError(f'unknown mapping scheme: {self.result_mapping}')
+
+        try:
+            tm4j_outcome = outcomes[outcome]
+        except KeyError:
+            raise AssertionError(f'unknown pytest outcome: {outcome}')
+        return tm4j_outcome
 
     def prepare_tm4j_report_json(self, pytest_json: dict) -> dict:
         """
@@ -165,6 +209,19 @@ class TM4JReporter:
             results[tm4j_num] = {
                 'name': test_name,
                 'outcome': self._resolve_outcome(test_dict['outcome'])}
+
+            # append to comments: crash info
+            if 'crash' in test_dict['call']:
+                crash = test_dict['call']['crash']
+                crash_msg = f"crash info:<br>" \
+                            f"path: {crash['path']}<br>" \
+                            f"lineno: {crash['lineno']}<br>" \
+                            f"message: {crash['message']}<br>"
+                if test_dict['metadata']['comment'] is not None:
+                    test_dict['metadata']['comment'] += f'<br><br>{crash_msg}'
+                else:
+                    test_dict['metadata']['comment'] = crash_msg
+
             results[tm4j_num].update(test_dict['metadata'])
 
         if tests_wo_tm4j_id:
@@ -197,14 +254,23 @@ class TM4JReporter:
 
         configure_tm4j_api(self.api_key, self.project_prefix)
 
-        if self.testcycle_key == '':
+        if not self.testcycle_key:
             print('[TM4J] Creating a new test cycle...')
-            tcycle_name = f'{self.testcycle_prefix}-{int(time())}'
-            tcycle_key_full = create_test_cycle(tcycle_name)
+            timestamp = datetime.now().utcnow().strftime('%d-%b-%Y %H:%M:%S UTC')
+            # e.g. 19-Jul-2020 19:33:00 UTC
+            tcycle_name = f'{self.testcycle_prefix} {timestamp}'
+
+            if self.testcycle_description:
+                tcycle_key_full = create_test_cycle(tcycle_name, description=self.testcycle_description)
+            else:
+                tcycle_key_full = create_test_cycle(tcycle_name)
+
             # e.g. tcycle_key_full: QT-R64
             self.testcycle_key = tcycle_key_full.split('-')[-1]
             # e.g. self.testcycle_key: R64
-            print(f'[TM4j] Created a new test cycle: key={tcycle_key_full}, name={tcycle_name}')
+            print(f'[TM4J] Created a new test cycle: key={tcycle_key_full}, name="{tcycle_name}"')
+            if self.testcycle_description:
+                print(f'[TM4J] Test cycle description: {self.testcycle_description}')
         else:
             tcycle_key_full = f'{self.project_prefix}-{self.testcycle_key}'
             print(f'[TM4J] Using existing test cycle: key={tcycle_key_full}')
@@ -227,22 +293,34 @@ class TM4JReporter:
 
     def pytest_unconfigure(self, config: Config):
         assert isinstance(config, Config)  # "config" object is not used, but required for the pytest hook
+        if config.option.tm4j_no_publish:
+            print('[TM4J] Execution results publishing skipped')
+            return
         self.report_publish()
 
 
 def pytest_addoption(parser):
     group = parser.getgroup('tm4j', 'Reporting test results to TM4J')
     group.addoption('--tm4j', default=False, action='store_true', help='Report test results to TM4J')
+    group.addoption('--tm4j-no-publish', default=False, action='store_true', help='Do not send results to TM4J')
 
     parser.addini('tm4j_project_prefix', 'TM4J project prefix without trailing dash (e.g. SWDEV)')
     parser.addini('tm4j_api_key', 'TM4J API key')
     parser.addini('tm4j_testcycle_key', 'TM4J existing test cycle key (e.g. R43)')
 
     tcycle_default = 'autoreport'
-    tcycle_prefix_desc = f'TM4J test cycle prefix ("{tcycle_default}" makes {tcycle_default}-<UNIX epoch>)'
+    tcycle_prefix_desc = f'TM4J test cycle prefix ("{tcycle_default}" ' \
+                         f'makes "{tcycle_default} <14-Jul-2020 16:41:24 UTC>)"'
     parser.addini('tm4j_testcycle_prefix', tcycle_prefix_desc, default=tcycle_default)
 
+    tcycle_desc_param = 'Description for the new test cycle. ' \
+                        'A description for the existing test cycle won\'t be changed'
+    parser.addini('tm4j_testcycle_description', tcycle_desc_param, default='')
+
     parser.addini('tm4j_project_webui_host', 'TM4J project webui host (e.g. klika-tech.atlassian.net)')
+
+    result_mapping_desc = 'How to map test result - Pytest vs TM4J. tm4j-default (default) or pytest. see README'
+    parser.addini('tm4j_result_mapping', result_mapping_desc, default='tm4j-default')
 
 
 def pytest_configure(config: Config):

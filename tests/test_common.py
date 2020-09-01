@@ -5,6 +5,7 @@
 from configparser import ConfigParser
 from json import load
 from os import remove, path, environ
+from pathlib import Path
 from re import match
 from subprocess import run
 from typing import Union
@@ -25,28 +26,42 @@ def get_plugin_cfg(key: str) -> str:
     return c['pytest'][key]
 
 
-def run_test(exp_rc: int = 0, environment: Union[dict, None] = None):
+def run_test(exp_rc: int = 0, environment: Union[dict, None] = None, publish=True) -> str:
     """
     args: list of pytest cmdline arguments
+    :param publish: publish results to TM4J
     :param exp_rc: expected return code
-    :type environment: sys env vars
+    :param environment: sys env vars
     """
     if path.isfile(report_fname):
         remove(report_fname)
-    cmd = 'pytest --tm4j common/report_tests.py'.split()
+    cmd = 'python -m pytest -p no:cacheprovider --tm4j'.split()
+    if not publish:
+        cmd.append('--tm4j-no-publish')
+    cmd.append('common/report_tests.py')
     new_env = environ.copy()
+
+    plugin_location = Path.cwd().parent.as_posix()
+    print('plugin location:', plugin_location)
+    new_env['PYTHONPATH'] = plugin_location
+
+    new_env['PYTHONDONTWRITEBYTECODE'] = '1'
+    new_env['PYTEST_PLUGINS'] = 'pytest_tm4j_reporter.reporter'
+
     if environment:
         new_env.update(environment)
 
     cmd_run = run(cmd, capture_output=True, env=new_env)
 
     output = cmd_run.stdout.decode()
-    assert cmd_run.returncode == exp_rc
+    err = cmd_run.stderr.decode()
+    assert err == '', print(err)
+    assert cmd_run.returncode == exp_rc, f'got stdout:\n{output}\ngot stderr:\n{err}'
     return output
 
 
 def test_verify_output_json_structure():
-    output = run_test(exp_rc=1)
+    output = run_test(exp_rc=1, publish=False)
     print('CHECK: tests without a TM4J ID are listed as warning in stdout')
     expected_ptrn = 'tests affected:.*report_tests.py::test_withoutTm4jId_two'
     for line in output.split('\n'):
@@ -74,14 +89,19 @@ def test_publish_existing_testcycle():
     print('CHECK: publish result reported')
     # no real check because the api client does not return result
     # todo: api client to return result
+    expected = f'[TM4J] Using existing test cycle: key={project_prefix}-{tcycle_key}'
+    assert expected in output, f'got: {output}'
+
     expected = f'[TM4J] Report published. Project: {project_prefix}. Test cycle key: {tcycle_key}'
     assert expected in output, f'got: {output}'
 
 
 def test_publish_create_testcycle():
     project_prefix = get_plugin_cfg('tm4j_project_prefix')
+    tcycle_desc = get_plugin_cfg('tm4j_testcycle_description')
+
     output = run_test(exp_rc=1)
-    exp1 = '[TM4j] Created a new test cycle'
+    exp1 = '[TM4J] Created a new test cycle'
     exp2_raw = r'\[TM4J\] Report published\. Project: project_prefix\. Test cycle key: R\d+'
     exp2 = exp2_raw.replace('project_prefix', project_prefix)
     assert exp1 in output, f'\nexpected: {exp1}\ngot: {output}'
@@ -90,6 +110,9 @@ def test_publish_create_testcycle():
             break
     else:
         raise AssertionError(f'\n{exp2} not found in output:\n{output}')
+
+    exp3 = f'[TM4J] Test cycle description: {tcycle_desc}'
+    assert exp3 in output, f'got: {output}'
 
 
 @mark.xfail
