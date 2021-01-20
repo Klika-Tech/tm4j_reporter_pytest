@@ -211,7 +211,7 @@ class TM4JReporter:
                 'outcome': self._resolve_outcome(test_dict['outcome'])}
 
             # append to comments: crash info
-            if 'crash' in test_dict['call']:
+            if 'call' in test_dict and 'crash' in test_dict['call']:
                 crash = test_dict['call']['crash']
                 crash_msg = f"crash info:<br>" \
                             f"path: {crash['path']}<br>" \
